@@ -1,51 +1,53 @@
-import React from "react";
-import { render, fireEvent, waitForElement } from "@testing-library/react";
-import "@testing-library/jest-dom/extend-expect";
+import React from "react"
+import { render, fireEvent, waitForElement } from "@testing-library/react"
+import "@testing-library/react"
+import { Provider } from "react-redux"
+import { BrowserRouter as Router } from "react-router-dom"
+import axios from "axios"
+import store from "./store/index"
+import App from "./App.js"
 
-import { Provider } from "react-redux";
-import { BrowserRouter as Router } from "react-router-dom";
-import axios from "axios";
+jest.mock('axios')
 
-import store from "./store";
-import App from "./App";
-
-jest.mock("axios");
-
-test("TodoList works well", async () => {
-  const app = render(
+test('rendered correctly', async () => {
+	const app = render (
     <Provider store={store}>
       <Router>
         <App />
       </Router>
     </Provider>
-  );
+	);
+	axios.get.mockResolvedValue({
+		data: [{
+			id: 1,
+			title: 'first todo'
+		}]
+	})
 
-  axios.get.mockResolvedValueOnce({
-    data: [{ id: 1, title: "Fake Todo from Mock!" }],
-  });
+	fireEvent.click(app.queryByTestId('link-to-todos'))
+	expect(app.getByText('Your todos')).toBeInTheDocument()
+	expect(app.queryByPlaceholderText('Enter your todo')).toBeInTheDocument()
 
-  fireEvent.click(app.getByTestId("link-to-todos"));
+	await waitForElement(() => app.getAllByRole('listitem'))
 
-  await waitForElement(() => app.getAllByRole("listitem"));
+	const event = {
+		target: {
+			value:'testing is hard'
+		}
+	}
 
-  expect(app.queryByText(/Your todos/)).toBeInTheDocument();
-  expect(app.queryByText(/Welcome/)).not.toBeInTheDocument();
+	axios.post.mockResolvedValue({
+		data: {
+			id: 2,
+			title: event.target.value
+		}
+	})
 
-  const event = {
-    target: {
-      value: "Testing is super fun",
-    },
-  };
+	fireEvent.change(app.queryByTestId('input-form-add'), event)
+	fireEvent.submit(app.queryByTestId('form-add'))
 
-  axios.post.mockResolvedValueOnce({
-    data: { id: 2, title: event.target.value },
-  });
+	await waitForElement(() => app.getAllByRole('listitem'))
 
-  fireEvent.change(app.queryByTestId("new-todo-input"), event);
-  fireEvent.submit(app.queryByTestId("new-todo-form"));
-
-  await waitForElement(() => app.getAllByRole("listitem"));
-
-  expect(app.queryByTestId("todo-list").children.length).toBe(2);
-  expect(app.queryByTestId("todo-list")).toHaveTextContent(event.target.value);
-});
+	expect(app.queryByTestId('list-todo-container').children.length).toBe(2)
+	expect(app.getByTestId('list-todo-container')).toHaveTextContent(event.target.value)
+})
